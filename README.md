@@ -9,7 +9,7 @@ The following type of chat / message can be allowed:
 Getting your own API keys:
 1. Visit https://my.telegram.org/apps and login with your Telegram account
 2. Create a new application
-3. Paste 'api_id' and 'api_hash' in 'telegram-downloader.py'
+3. Paste 'api_id' and 'api_hash' in `config.yaml`
 
 # Installation (Windows)
 `pip install -r requirements.txt`
