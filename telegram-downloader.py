@@ -1,12 +1,16 @@
 from telethon import TelegramClient
 from telethon.tl.types import InputMessagesFilterPhotos, InputMessagesFilterVideo, InputMessagesFilterVoice, InputMessagesFilterDocument, InputMessagesFilterMusic, InputMessagesFilterRoundVideo, InputMessagesFilterGif, InputMessagesFilterPhotoVideo
-from telethon.tl.types import DocumentAttributeSticker, DocumentAttributeAudio, DocumentAttributeAnimated
 from pathlib import Path
 import asyncio
+import yaml
+import getMessageType
+
 
 async def main():
-    api_id = 00000000 # your api_id
-    api_hash = "your api_hash"
+    with open("config.yaml") as f:
+        cfg = yaml.safe_load(f)   
+    api_id = cfg['api_id']
+    api_hash = cfg['api_hash']
     default_chat_ID = "me"
     media_path = '.\\download\\'
     Path(media_path).mkdir(parents=True, exist_ok=True)
@@ -47,7 +51,7 @@ async def main():
             break
         else:
             print('Invalid input')
-    last_msg_limit = input('Insert amount of messages (from recent message): ')  
+    last_msg_limit = input('Insert number of messages (from recent message): ')  
 
     # Print Message
     try:
@@ -59,12 +63,12 @@ async def main():
         print('User not found / You don\'t have permission to access')
         exit()
 
-    # Select a message(file) to download / + send to saved msg
+    # Select a message(file) to download / + send to saved message
     msg_ID_input = input('Select message id: ')
     msg_ID = msg_list[int(msg_ID_input)]
     send_back_input = input('Send back to saved messages(Y/N): ')
 
-    target_msg = await cli.get_messages(chat_ID, ids=msg_ID)   
+    target_msg = await cli.get_messages(chat_ID, ids=msg_ID) 
 
     try:
         if target_msg.media.photo != None:
@@ -102,7 +106,7 @@ async def saveFile(cli, file, media_path, file_type, send_back):
     if send_back == 'Y':
         print("Uploading...")
         await cli.send_file('me', open(file_name, 'rb'))
-        print(file_type, 'was sent in your saved messages')
+        print(file_type, 'was sent to your saved messages')
         await asyncio.sleep(0)
 
 
@@ -140,62 +144,6 @@ def chatListHandler(chat_list):
                 print('Invalid input')
 
     return None
-
-
-def getMessageType(message): 
-
-    def checkSticker(attributes):
-        for attr in attributes:
-            if isinstance(attr, DocumentAttributeSticker):
-                return True
-        return False 
-
-    def checkGif(attributes):
-        for attr in attributes:
-            if isinstance(attr, DocumentAttributeAnimated):
-                return True
-        return False     
-
-    def checkAudio(attributes):
-        for attr in attributes:
-            if isinstance(attr, DocumentAttributeAudio):
-                return True
-        return False 
-
-    chat_media_tag = None
-    if message.media != None:
-        msg_media_detail = message.media
-        if hasattr(msg_media_detail, 'photo'):
-            if msg_media_detail.ttl_seconds != None:
-                chat_media_tag = '(secret photo)'
-            else:
-                chat_media_tag = '(photo)'
-        elif hasattr(msg_media_detail, 'document'):
-            if bool(msg_media_detail.video):
-                if msg_media_detail.ttl_seconds != None:
-                    chat_media_tag = '(secret video)'
-                else:
-                    chat_media_tag = '(video)'
-            elif bool(msg_media_detail.voice):
-                if msg_media_detail.ttl_seconds != None:
-                    chat_media_tag = '(secret voice)'
-                else:
-                    chat_media_tag = '(voice)'
-            elif bool(msg_media_detail.round):
-                chat_media_tag = '(round video)'
-            else:
-                chat_media_atts = message.media.document.attributes
-                if checkSticker(chat_media_atts):
-                    chat_media_tag = '(sticker)'
-                elif checkAudio(chat_media_atts):
-                    chat_media_tag = '(audio)'
-                elif checkGif(chat_media_atts):
-                    chat_media_tag = '(gif)'
-                else:         
-                    chat_media_tag = '(document)'
-        else:
-            chat_media_tag = '(other)'
-    return chat_media_tag
 
 
 if '__main__' == __name__:
