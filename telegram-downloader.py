@@ -1,35 +1,38 @@
 from telethon import TelegramClient
-from telethon.tl.types import InputMessagesFilterPhotos, InputMessagesFilterVideo, InputMessagesFilterVoice, InputMessagesFilterDocument, InputMessagesFilterMusic, InputMessagesFilterRoundVideo, InputMessagesFilterGif, InputMessagesFilterPhotoVideo
 from pathlib import Path
-import asyncio
+import asyncio, asyncstdlib
 import yaml
-import getMessageType
-
+import getMessageType, messageFilter
 
 async def main():
-    with open("config.yaml") as f:
-        cfg = yaml.safe_load(f)   
-    api_id = cfg['api_id']
-    api_hash = cfg['api_hash']
-    default_chat_ID = "me"
+    try:
+        with open("config.yaml") as f:
+            cfg = yaml.safe_load(f)
+        api_id = cfg['api_id']
+        api_hash = cfg['api_hash']
+        default_chat_ID = cfg['default_chat_ID']
+    except:
+        print("config.yaml not found")
+        exit()
+
     media_path = '.\\download\\'
     Path(media_path).mkdir(parents=True, exist_ok=True)
-    message_filter_list = [None, InputMessagesFilterPhotos, InputMessagesFilterVideo, InputMessagesFilterPhotoVideo, InputMessagesFilterVoice, InputMessagesFilterRoundVideo, InputMessagesFilterMusic, InputMessagesFilterGif, InputMessagesFilterDocument]
-    msg_filter = None
-    msg_list = []
-    chat_list = []    
+    message_filter_list = messageFilter.filter_list
 
-    cli = TelegramClient('user', api_id, api_hash)
-
-    print('ready to start...')
-    await cli.start()
+    try:
+        cli = TelegramClient('user', api_id, api_hash)
+        print('ready to start...')
+        await cli.start()
+    except:
+        print('please make sure your api_id and api_hash are valid')
+        exit()
 
     # Select a chat by id / get from list
-    chat_ID = None
     chat_ID_input = input('Insert chat username/ID (type 0 as default / 1 get from list): ')
     if chat_ID_input == '0':
         chat_ID = default_chat_ID
     elif chat_ID_input == '1': # print all chat
+        chat_list = []
         async for chat_dialog in cli.iter_dialogs(archived=False, ignore_migrated=True):
             chat_list.append({"id": chat_dialog.id, "title": chat_dialog.title})
         chat_list_ID = chatListHandler(chat_list)
@@ -42,16 +45,15 @@ async def main():
     print(f'Chat ({chat_ID}) has been selected')
 
     # Get message type and amount
-    print('0: all \n1: photo \n2: video \n3: photo/video \n4: voice \n5: round video \n6: audio \n7: gif \n8: other document')
-    msg_filter = None
+    print(messageFilter.print_text)
     while True:
         msg_filter_input = input('Select message type: ')
-        if msg_filter_input.isdigit() and int(msg_filter_input) <= 8:
+        if msg_filter_input.isdigit() and int(msg_filter_input) + 1 <= len(message_filter_list):
             msg_filter = message_filter_list[int(msg_filter_input)]
             break
         else:
             print('Invalid input')
-    last_msg_limit = input('Insert number of messages (from recent message): ')  
+    last_msg_limit = input('Insert number of messages (from recent message): ')
 
     # Print Message
     try:
@@ -59,16 +61,17 @@ async def main():
         if msg_list == []:
             print('No message found')
             exit()
-    except:
+    except Exception as e:
+        print(e)
         print('User not found / You don\'t have permission to access')
         exit()
 
     # Select a message(file) to download / + send to saved message
     msg_ID_input = input('Select message id: ')
     msg_ID = msg_list[int(msg_ID_input)]
-    send_back_input = input('Send back to saved messages(Y/N): ')
+    send_back_input = input('Send back to saved messages(Y/N): ').upper()
 
-    target_msg = await cli.get_messages(chat_ID, ids=msg_ID) 
+    target_msg = await cli.get_messages(chat_ID, ids=msg_ID)  
 
     try:
         if target_msg.media.photo != None:
@@ -86,18 +89,14 @@ async def main():
             print("not a media type")
 
 
-
 async def printMsg(cli, chat_ID, last_msg_limit, msg_filter):
     msg_list = []
-    msg_count = 0;
-    async for message in cli.iter_messages(chat_ID, limit=last_msg_limit, filter=msg_filter):
+    all_msg = cli.iter_messages(chat_ID, limit=last_msg_limit, filter=msg_filter)
+    async for idx, message in asyncstdlib.enumerate(all_msg):
         chat_media_tag = getMessageType(message)
-        print(f"{msg_count}: {chat_media_tag or '(text only)'} {message.text}")  
-
-        msg_list.append(message.id)
-        msg_count += 1     
-    return msg_list     
-
+        print(f"{idx}: {chat_media_tag or '(text only)'} {message.text}")
+        msg_list.append(message.id)  
+    return msg_list
 
 async def saveFile(cli, file, media_path, file_type, send_back):
     print('Downloading', file_type, '...')
@@ -108,7 +107,6 @@ async def saveFile(cli, file, media_path, file_type, send_back):
         await cli.send_file('me', open(file_name, 'rb'))
         print(file_type, 'was sent to your saved messages')
         await asyncio.sleep(0)
-
 
 def chatListHandler(chat_list):
     chat_length = len(chat_list)
@@ -121,7 +119,7 @@ def chatListHandler(chat_list):
             print(i, ':', chat_list[i]["title"])
 
         while True:
-            chat_list_ID = input('Choose your chat (P for previous page / N for next page): ')
+            chat_list_ID = input('Choose your chat (P for previous page / N for next page): ').upper()
 
             if chat_list_ID.isdigit():
                 if int(chat_list_ID) < chat_length:
@@ -142,8 +140,7 @@ def chatListHandler(chat_list):
                     print('No more chat can be display')
             else:
                 print('Invalid input')
-
-    return None
+    return
 
 
 if '__main__' == __name__:
